@@ -9,7 +9,7 @@ log_dir: checkpoints/nimagenet/ResNet34-EST_tsAbs_2Channels_16Intervals
 exp_name: ResNet34-EST_tsAbs_2Channels_16Intervals
 
 num_workers: 0
-batch_size: [4, 2, 2]
+batch_size: [16, 8, 8]
 optimize_every: 25
 learning_rate: 0.0001
 
