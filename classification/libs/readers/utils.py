@@ -4,7 +4,7 @@ import torch
 import numpy as np
 from termcolor import colored
 
-from .eventdataset import EventDataset, EventDetectionDataset
+from .eventdataset import EventDataset, EventDetectionDataset, NImagenetDataset
 from .eventchunkdataset import EventChunkDataset, EventDetectionChunkDataset
 from .filereader import (BinFileReader, AerFileReader, PropheseeReader,
                          NumpyFileReader, MatFileReader)
@@ -103,15 +103,20 @@ def collate_detection_fn(batch):
 
 
 def get_dataset(files_source, reader_type, transform=None, mixed_transform=None,
-                format=None, usechunks=False, chunk_params=None):
+                format=None, usechunks=False, chunk_params=None, is_imagenet=False):
 
-    file_ext = get_file_format(files_source, reader_type)
-    filereader = get_filereader(file_ext, format)
+    if not is_imagenet:
+        file_ext = get_file_format(files_source, reader_type)
+        filereader = get_filereader(file_ext, format)
 
     if not usechunks:
         if reader_type == 'classification':
-            dataset = EventDataset(filereader, files_source=files_source,
-                                   transforms=transform, format=format)
+            if is_imagenet:
+                dataset = NImagenetDataset(files_source=files_source, transforms=transform)
+            else:
+                dataset = EventDataset(filereader, files_source=files_source,
+                                       transforms=transform, format=format)
+
         elif reader_type == 'detection':
             dataset = EventDetectionDataset(filereader, files_source=files_source, transforms=transform,
                                             mixed_transforms=mixed_transform, format=format)
@@ -133,7 +138,8 @@ def get_dataset(files_source, reader_type, transform=None, mixed_transform=None,
 
 
 def get_loader(files_source, batch_size, shuffle, num_workers=0, transform=None, mixed_transform=None,
-               format=None, reader_type='classification', pad=False, usechunks=False, chunk_params=None, seed=42):
+               format=None, reader_type='classification', pad=False, usechunks=False, chunk_params=None, seed=42,
+               is_imagenet=False):
 
     torch.manual_seed(seed)
 
@@ -145,7 +151,7 @@ def get_loader(files_source, batch_size, shuffle, num_workers=0, transform=None,
         raise ValueError("Unknown reader type %s" % reader_type)
 
     dataset = get_dataset(files_source, reader_type, transform,
-                          mixed_transform, format, usechunks, chunk_params)
+                          mixed_transform, format, usechunks, chunk_params, is_imagenet=is_imagenet)
     loader = torch.utils.data.DataLoader(dataset, collate_fn=collate, batch_size=batch_size,
                                          shuffle=shuffle, num_workers=num_workers)
     return loader
@@ -221,7 +227,7 @@ def format_transform(transform):
 
 def get_splits(data_dir, batch_size, num_workers=0, transform=None, mixed_transforms=None, format=None,
                pad=False, usechunks=False, chunks_delta_t=5e4, min_chunk_delta_t=2.5e4, min_chunk_n_events=150,
-               val_split=0.2, reader_type='classification', seed=42):
+               val_split=0.2, reader_type='classification', seed=42, is_imagenet=False):
 
     chunk_params = chunkparams(chunks_delta_t, min_chunk_delta_t, min_chunk_n_events)
     np.random.seed(seed)
@@ -234,9 +240,14 @@ def get_splits(data_dir, batch_size, num_workers=0, transform=None, mixed_transf
     if reader_type not in ['classification', 'detection']:
         raise ValueError("Supported types are 'classification' and 'detection'. Provided: %s" % reader_type)
 
-    train_source = get_dir_or_chunkfile(data_dir, usechunks, "train")
-    val_source = get_dir_or_chunkfile(data_dir, usechunks, "validation")
-    test_source = get_dir_or_chunkfile(data_dir, usechunks, "test")
+    if is_imagenet:
+        train_source = os.path.join(data_dir, 'extracted_train')
+        val_source = os.path.join(data_dir, 'extracted_val')
+        test_source = os.path.join(data_dir, 'extracted_val')
+    else:
+        train_source = get_dir_or_chunkfile(data_dir, usechunks, "train")
+        val_source = get_dir_or_chunkfile(data_dir, usechunks, "validation")
+        test_source = get_dir_or_chunkfile(data_dir, usechunks, "test")
 
     if (not isinstance(train_source, list)) and (not os.path.exists(train_source)):
         raise ValueError("Training source %s does not exist" % train_source)
@@ -247,11 +258,13 @@ def get_splits(data_dir, batch_size, num_workers=0, transform=None, mixed_transf
         train_loader = get_loader(files_source=train_source, format=format, reader_type=reader_type,
                                   batch_size=batch_size['train'], shuffle=True, transform=transform['train'],
                                   mixed_transform=mixed_transforms, num_workers=num_workers,
-                                  pad=pad, usechunks=usechunks['train'], chunk_params=chunk_params, seed=seed)
+                                  pad=pad, usechunks=usechunks['train'], chunk_params=chunk_params, seed=seed,
+                                  is_imagenet=is_imagenet)
         val_loader = get_loader(files_source=val_source, format=format, reader_type=reader_type,
                                 batch_size=batch_size['validation'], shuffle=False, transform=transform['validation'],
                                 mixed_transform=mixed_transforms, num_workers=num_workers,
-                                pad=pad, usechunks=usechunks['validation'], chunk_params=chunk_params, seed=seed)
+                                pad=pad, usechunks=usechunks['validation'], chunk_params=chunk_params, seed=seed,
+                                is_imagenet=is_imagenet)
     else:
         train_source = get_dir_or_chunkfile(data_dir, {'train': False}, "train")
         file_ext = get_file_format(train_source, reader_type)
@@ -278,7 +291,8 @@ def get_splits(data_dir, batch_size, num_workers=0, transform=None, mixed_transf
     test_loader = get_loader(files_source=test_source, format=format, reader_type=reader_type,
                              batch_size=batch_size['test'], shuffle=False, transform=transform['test'],
                              mixed_transform=mixed_transforms, num_workers=num_workers,
-                             pad=pad, usechunks=usechunks['test'], chunk_params=chunk_params, seed=seed)
+                             pad=pad, usechunks=usechunks['test'], chunk_params=chunk_params, seed=seed,
+                             is_imagenet=is_imagenet)
 
     if reader_type == "classification":
         assert train_loader.dataset.num_classes == \

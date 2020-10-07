@@ -42,11 +42,63 @@ class EventDataset(Dataset):
 
         if self.transforms is not None:
             events = self.transforms(events)
+        breakpoint()
 
         return events, lbl
 
     def __len__(self):
         return len(self.files)
+
+
+class NImagenetDataset(Dataset):
+
+    def __init__(self, files_source, transforms=None):
+        Dataset.__init__(self)
+        self.transforms = transforms
+
+        # get number of classes
+        self.classes = sorted(os.listdir(files_source))
+        self.name_to_id = {self.classes[i]: i for i in range(len(self.classes))}
+        if len(self.classes) != 1000:
+            raise ValueError("There should be 1000 classes, only {} exist".format(len(self.classes)))
+
+        # get files list
+        if isinstance(files_source, str) and os.path.isdir(files_source):
+            self.files = glob.glob(os.path.join(files_source, "*/*.npz"))
+        else:
+            raise ValueError("You should provide either dir_path or paths_list!")
+
+    def __getitem__(self, idx):
+        path = self.files[idx]
+        classname = os.path.basename(os.path.dirname(path))
+        lbl = self.name_to_id[classname]
+
+        # parse data
+        data = np.load(path)
+        max_shift = 20
+        shifts = max_shift * (2 * np.random.rand(2) - 1)
+        # shifts = max_shift * np.random.rand(2)
+        # x = (data['x_pos'].astype(np.float32) / (640. - 1.) * 246) + shifts[0]
+        # y = (data['y_pos'].astype(np.float32) / (480. - 1.) * 224) + shifts[1]
+        x = data['x_pos'].astype(np.float32)
+        y = data['y_pos'].astype(np.float32)
+        x = x / (x.max() - x.min()) * 224 + shifts[0]
+        y = y / (y.max() - y.min()) * 224 + shifts[0]
+        ts = data['timestamp'].astype(np.float32)
+        ts = (ts - ts.min()) / 1e6
+        p = data['polarity'].astype(np.float32)
+        events = np.stack([x, y, ts, p], axis=1)
+        if self.transforms is not None:
+            events = self.transforms(events)
+        return events, lbl
+
+    def __len__(self):
+        return len(self.files)
+
+    @property
+    def num_classes(self):
+        return len(self.classes)
+
 
 
 class EventDetectionDataset(EventDataset):

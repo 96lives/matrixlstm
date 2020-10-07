@@ -46,6 +46,7 @@ def get_params():
 
     parser.add_argument('--decay_scheduler', type=str, default=None)
     parser.add_argument('--decay_kwargs', type=arg_kwargs(), default=None)
+    parser.add_argument('--is_imagenet', type=bool, default=False)
 
     args, _ = parser.parse_known_args()
     return args
@@ -67,16 +68,20 @@ if __name__ == "__main__":
     acc_results = []
     for params in seed_iterator(params):
 
-        train_loader, val_loader, test_loader = reader.get_splits(data_dir=params.data_dir,
-                                                                  val_split=params.val_perc,
-                                                                  batch_size=params.batch_size,
-                                                                  num_workers=params.num_workers,
-                                                                  transform=transforms,  pad=True,
-                                                                  usechunks=params.use_chunks,
-                                                                  chunks_delta_t=params.chunks_delta_t,
-                                                                  min_chunk_delta_t=params.chunks_min_delta_t,
-                                                                  min_chunk_n_events=params.chunks_min_n_events,
-                                                                  seed=params.seed)
+        train_loader, val_loader, test_loader = reader.get_splits(
+            data_dir=params.data_dir,
+            val_split=params.val_perc,
+            batch_size=params.batch_size,
+            num_workers=params.num_workers,
+            transform=transforms,
+            pad=True,
+            usechunks=params.use_chunks,
+            chunks_delta_t=params.chunks_delta_t,
+            min_chunk_delta_t=params.chunks_min_delta_t,
+            min_chunk_n_events=params.chunks_min_n_events,
+            seed=params.seed,
+            is_imagenet=params.is_imagenet,
+        )
 
         net = MatrixLSTMResNet((params.input_height, params.input_width),
                                train_loader.dataset.num_classes,

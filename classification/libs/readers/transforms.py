@@ -320,14 +320,21 @@ class ExtendRandomCropEvents(object):
         w = x_max - x_min
         h = y_max - y_min
 
-        if w >= self.width:
-            left = np.random.randint(x_min, max(x_min + 1, w - self.width))
-        else:
-            left = np.random.randint(x_max - self.width + 1, x_min + 1)
-        if h >= self.height:
-            top = np.random.randint(y_min, max(y_min + 1, h - self.height))
-        else:
-            top = np.random.randint(y_max - self.height + 1, y_min + 1)
+        try:
+            if w >= self.width:
+                left = np.random.randint(x_min, max(x_min + 1, w - self.width))
+            else:
+                left = np.random.randint(x_max - self.width + 1, x_min + 1)
+        except ValueError:
+            left = 0
+
+        try:
+            if h >= self.height:
+                top = np.random.randint(y_min, max(y_min + 1, h - self.height))
+            else:
+                top = np.random.randint(y_max - self.height + 1, y_min + 1)
+        except ValueError:
+            top = 0
 
         # Select events inside the crop area
         inside = np.logical_and.reduce([x >= left, x < left + self.width,

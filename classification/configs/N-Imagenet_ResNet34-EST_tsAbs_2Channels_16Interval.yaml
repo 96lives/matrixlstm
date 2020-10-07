@@ -2,8 +2,10 @@ sacred: False
 mongodb_disable: True
 iterate_seed: [0, 1, 2, 3, 4]
 
-data_dir: data/N-Caltech101-RPG
-log_dir: checkpoints/ncaltech101/ResNet34-EST_tsAbs_2Channels_16Intervals
+is_imagenet: True
+data_dir: data/N_Imagenet
+# log_dir: checkpoints/ncaltech101/ResNet34-EST_tsAbs_2Channels_16Intervals
+log_dir: checkpoints/nimagenet/ResNet34-EST_tsAbs_2Channels_16Intervals
 exp_name: ResNet34-EST_tsAbs_2Channels_16Intervals
 
 num_workers: 0
