@@ -42,8 +42,6 @@ class EventDataset(Dataset):
 
         if self.transforms is not None:
             events = self.transforms(events)
-        breakpoint()
-
         return events, lbl
 
     def __len__(self):
