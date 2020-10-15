@@ -158,7 +158,8 @@ class Trainer:
         self.keep_only_best_checkpoint = params.keep_only_best_checkpoint
 
         timestring = strftime("%Y-%m-%d_%H-%M-%S", gmtime()) + "_%s" % params.exp_name
-        self.log_dir = self.restart_path if self.restart_path else os.path.join(params.log_dir, timestring)
+        # self.log_dir = self.restart_path if self.restart_path else os.path.join(params.log_dir, timestring)
+        self.log_dir = os.path.join(params.log_dir, timestring)
 
         self.use_sacred = params.sacred
         if params.sacred:
@@ -330,13 +331,20 @@ class Trainer:
         ckpt_path = os.path.join(path, filename)
 
         checkpoint = torch.load(ckpt_path)
-        self.seen = checkpoint['seen']
-        self.epoch = checkpoint['epoch']
-        self.best_epoch = checkpoint['best_epoch']
-        self.beaten_epochs = checkpoint['beaten_epochs']
-        self.best_epoch_score = checkpoint['best_epoch_score']
-        self.network.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        model_state_dict = checkpoint['model_state_dict']
+        if model_state_dict['resnet.fc.weight'].shape[0] != self.network.resnet.fc.out_features:
+            model_state_dict.pop('resnet.fc.weight')
+            prev_class_num = model_state_dict.pop('resnet.fc.bias').shape[0]
+            print('popping checkpoint last from {}'.format(prev_class_num))
+            self.network.load_state_dict(model_state_dict, strict=False)
+        else:
+            self.seen = checkpoint['seen']
+            self.epoch = checkpoint['epoch']
+            self.best_epoch = checkpoint['best_epoch']
+            self.beaten_epochs = checkpoint['beaten_epochs']
+            self.best_epoch_score = checkpoint['best_epoch_score']
+            self.network.load_state_dict(model_state_dict)
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     def load_network_checkpoint(self, path, filename):
         ckpt_path = os.path.join(path, filename)
